@@ -145,21 +145,27 @@ The build process supports both **amd64** (x86_64) and **arm64** (ARM/Graviton) 
 
 #### Required GitHub Secrets
 
-To enable automated deployment to AWS EC2, configure the following secret in your GitHub repository:
+To enable automated deployment to AWS EC2, configure the following secrets in your GitHub repository (Settings → Secrets and variables → Actions → New repository secret):
 
 - **`SSH_KEY`**: AWS EC2 SSH private key for deploying to the EC2 instance
   - This is the private SSH key (PEM format) used to authenticate with the AWS EC2 instance
-  - Configure this in GitHub: Settings → Secrets and variables → Actions → New repository secret
-  - Name: `SSH_KEY`
   - Value: The complete private key content (including `-----BEGIN RSA PRIVATE KEY-----` and `-----END RSA PRIVATE KEY-----` headers)
+
+- **`EC2_HOST`**: The IP address or hostname of your EC2 instance
+  - Example: `35.90.6.81` or `ec2-xx-xx-xx-xx.compute.amazonaws.com`
+  
+- **`EC2_USER`**: The SSH username for your EC2 instance  
+  - Typically `ec2-user` for Amazon Linux, `ubuntu` for Ubuntu, etc.
 
 #### Deployment Target
 
-- **Host**: 35.90.6.81 (us-west-2)
-- **Architecture**: ARM64 (aarch64)
-- **User**: ec2-user
-- **Port**: 8080
-- **Shared with**: [example-ui](https://github.com/seedub/example-ui) (Nginx on port 80)
+The deployment is configured via GitHub Secrets for security. Example configuration:
+
+- **Host**: Your EC2 instance IP or hostname (configured in `EC2_HOST` secret)
+- **Architecture**: The deployment automatically detects the EC2 architecture (amd64 or arm64)
+- **User**: Your EC2 SSH user (configured in `EC2_USER` secret)
+- **Port**: 8080 (configured in systemd service)
+- **Shared with**: Can be shared with frontend applications like [example-ui](https://github.com/seedub/example-ui) (Nginx on port 80)
 
 #### Manual Deployment
 
@@ -171,11 +177,11 @@ make build-amd64  # For x86_64 instances
 # OR
 make build-arm64  # For ARM/Graviton instances
 
-# Copy to EC2 (adjust for your architecture)
-scp -i /path/to/key.pem bin/example-api-amd64 ec2-user@35.90.6.81:/tmp/example-api
+# Copy to EC2 (replace with your actual values)
+scp -i /path/to/key.pem bin/example-api-amd64 YOUR_EC2_USER@YOUR_EC2_HOST:/tmp/example-api
 
 # SSH and install
-ssh -i /path/to/key.pem ec2-user@35.90.6.81
+ssh -i /path/to/key.pem YOUR_EC2_USER@YOUR_EC2_HOST
 sudo mv /tmp/example-api /usr/local/bin/example-api
 sudo chmod +x /usr/local/bin/example-api
 sudo systemctl restart example-api
@@ -202,7 +208,7 @@ sudo systemctl restart example-api
 
 ## Deployment Architecture (Same Server as UI)
 
-This API runs on the same AWS EC2 instance (35.90.6.81, ARM64) as the [example-ui](https://github.com/seedub/example-ui) React application.
+This API can run on the same server as a frontend application like [example-ui](https://github.com/seedub/example-ui).
 
 ### Server Configuration
 
@@ -217,17 +223,17 @@ This API runs on the same AWS EC2 instance (35.90.6.81, ARM64) as the [example-u
 
 ### UI Configuration for Same-Server Deployment
 
-The example-ui needs to be configured to call the API on the same server. Update `src/App.jsx`:
+The frontend application needs to be configured to call the API on the same server. Example for React:
 
 ```javascript
 // For same-server deployment on port 8080
-const API_BASE_URL = 'http://35.90.6.81:8080'
-
-// OR use window location if you want it dynamic
 const API_BASE_URL = `http://${window.location.hostname}:8080`
+
+// Or for nginx reverse proxy setup (see below)
+const API_BASE_URL = ''  // Same origin
 ```
 
-**Note:** Port 8080 must be opened in the AWS Security Group for external access.
+**Note:** Port 8080 must be opened in your firewall/security group for external access.
 
 ### Alternative: Nginx Reverse Proxy (Optional)
 
@@ -255,12 +261,12 @@ const API_BASE_URL = ''  // Same origin
 ### Testing the Integration
 
 ```bash
-# Test API directly
-curl http://35.90.6.81:8080/api/items
-curl http://35.90.6.81:8080/health
+# Test API directly (replace YOUR_EC2_HOST with your server)
+curl http://YOUR_EC2_HOST:8080/api/items
+curl http://YOUR_EC2_HOST:8080/health
 
 # Test from the UI
-open http://35.90.6.81
+open http://YOUR_EC2_HOST
 ```
 
 ## Contributing
