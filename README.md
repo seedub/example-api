@@ -65,7 +65,13 @@ This is a lightweight REST API built with Go that provides backend services for 
 
 4. Build the application:
    ```bash
+   # Build for current platform
    go build -o bin/example-api ./main.go
+   
+   # Or use Makefile for cross-compilation
+   make build-amd64  # Build for x86_64/amd64
+   make build-arm64  # Build for ARM64
+   make build-all    # Build for all architectures
    ```
 
 5. Run the application:
@@ -130,6 +136,13 @@ The project uses GitHub Actions for continuous integration and deployment:
 
 The application is automatically deployed to AWS EC2 when changes are pushed to the `main` branch.
 
+The build process supports both **amd64** (x86_64) and **arm64** (ARM/Graviton) architectures. The deployment workflow automatically detects the EC2 instance architecture and deploys the correct binary.
+
+#### Supported Architectures
+
+- **amd64** (x86_64): Standard Intel/AMD processors
+- **arm64** (aarch64): AWS Graviton processors
+
 #### Required GitHub Secrets
 
 - `SSH_KEY`: SSH private key for EC2 access
@@ -145,11 +158,13 @@ The application is automatically deployed to AWS EC2 when changes are pushed to 
 If you need to deploy manually:
 
 ```bash
-# Build the binary
-go build -o bin/example-api ./main.go
+# Build for your target architecture
+make build-amd64  # For x86_64 instances
+# OR
+make build-arm64  # For ARM/Graviton instances
 
-# Copy to EC2
-scp -i /path/to/key.pem bin/example-api ec2-user@35.90.6.81:/tmp/
+# Copy to EC2 (adjust for your architecture)
+scp -i /path/to/key.pem bin/example-api-amd64 ec2-user@35.90.6.81:/tmp/example-api
 
 # SSH and install
 ssh -i /path/to/key.pem ec2-user@35.90.6.81
