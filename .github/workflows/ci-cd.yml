@@ -117,8 +117,8 @@ jobs:
     - name: Detect EC2 architecture and deploy
       env:
         SSH_KEY: ${{ secrets.SSH_KEY }}
-        HOST: 35.90.6.81
-        USER: ec2-user
+        HOST: ${{ secrets.EC2_HOST }}
+        USER: ${{ secrets.EC2_USER }}
       run: |
         echo "Setting up SSH key..."
         mkdir -p ~/.ssh
@@ -152,8 +152,8 @@ jobs:
     - name: Deploy to EC2
       env:
         SSH_KEY: ${{ secrets.SSH_KEY }}
-        HOST: 35.90.6.81
-        USER: ec2-user
+        HOST: ${{ secrets.EC2_HOST }}
+        USER: ${{ secrets.EC2_USER }}
       run: |
         echo "Setting up SSH key..."
         mkdir -p ~/.ssh
