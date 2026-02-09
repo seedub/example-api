@@ -1,0 +1,193 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test and Coverage
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test ./... -v -race -coverprofile=coverage.out -covermode=atomic
+
+    - name: Generate coverage report
+      run: go tool cover -func=coverage.out
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./coverage.out
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Check code coverage threshold
+      run: |
+        total_coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+        echo "Total coverage: $total_coverage%"
+        if (( $(echo "$total_coverage < 70" | bc -l) )); then
+          echo "Coverage $total_coverage% is below threshold of 70%"
+          exit 1
+        fi
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: latest
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Build for amd64
+      run: GOOS=linux GOARCH=amd64 go build -v -o bin/example-api-amd64 ./main.go
+
+    - name: Build for arm64
+      run: GOOS=linux GOARCH=arm64 go build -v -o bin/example-api-arm64 ./main.go
+
+    - name: Upload amd64 artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: example-api-amd64
+        path: bin/example-api-amd64
+
+    - name: Upload arm64 artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: example-api-arm64
+        path: bin/example-api-arm64
+
+  deploy:
+    name: Deploy to AWS
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Detect EC2 architecture and deploy
+      env:
+        SSH_KEY: ${{ secrets.SSH_KEY }}
+        HOST: 35.90.6.81
+        USER: ec2-user
+      run: |
+        echo "Setting up SSH key..."
+        mkdir -p ~/.ssh
+        echo "$SSH_KEY" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        
+        echo "Detecting EC2 architecture..."
+        EC2_ARCH=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${USER}@${HOST} 'uname -m')
+        echo "EC2 architecture: $EC2_ARCH"
+        
+        # Map uname output to Go architecture names
+        if [ "$EC2_ARCH" = "x86_64" ]; then
+          BINARY_ARCH="amd64"
+        elif [ "$EC2_ARCH" = "aarch64" ]; then
+          BINARY_ARCH="arm64"
+        else
+          echo "ERROR: Unsupported architecture: $EC2_ARCH"
+          echo "Supported architectures: x86_64 (amd64), aarch64 (arm64)"
+          exit 1
+        fi
+        
+        echo "Architecture detected: $BINARY_ARCH"
+        echo "BINARY_ARCH=$BINARY_ARCH" >> $GITHUB_ENV
+
+    - name: Download architecture-specific binary
+      uses: actions/download-artifact@v4
+      with:
+        name: example-api-${{ env.BINARY_ARCH }}
+        path: bin/
+
+    - name: Deploy to EC2
+      env:
+        SSH_KEY: ${{ secrets.SSH_KEY }}
+        HOST: 35.90.6.81
+        USER: ec2-user
+      run: |
+        echo "Setting up SSH key..."
+        mkdir -p ~/.ssh
+        echo "$SSH_KEY" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        
+        BINARY_ARCH="${{ env.BINARY_ARCH }}"
+        echo "Deploying $BINARY_ARCH binary to EC2..."
+        
+        chmod +x bin/example-api-${BINARY_ARCH}
+        scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no bin/example-api-${BINARY_ARCH} ${USER}@${HOST}:/tmp/example-api
+        
+        echo "Copying systemd service file to EC2..."
+        scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deployment/example-api.service ${USER}@${HOST}:/tmp/
+        
+        echo "Installing and starting service on EC2..."
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${USER}@${HOST} << 'EOF'
+          # Stop the service if running
+          sudo systemctl stop example-api || true
+          
+          # Move binary to final location
+          sudo mv /tmp/example-api /usr/local/bin/example-api
+          sudo chmod +x /usr/local/bin/example-api
+          
+          # Install systemd service
+          sudo mv /tmp/example-api.service /etc/systemd/system/example-api.service
+          sudo systemctl daemon-reload
+          
+          # Enable and start the service
+          sudo systemctl enable example-api
+          sudo systemctl start example-api
+          
+          # Check status
+          sudo systemctl status example-api
+        EOF
+        
+        echo "Deployment complete for $BINARY_ARCH architecture!"
