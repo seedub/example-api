@@ -29,17 +29,21 @@ var store = NewStore()
 func RootHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Hello from the example API!"))
+	if _, err := w.Write([]byte("Hello from the example API!")); err != nil {
+		log.Printf("Error writing response: %v", err)
+	}
 }
 
 // HealthCheckHandler returns a simple health check
 func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"status": "healthy",
 		"time":   time.Now().Format(time.RFC3339),
-	})
+	}); err != nil {
+		log.Printf("Error encoding health check response: %v", err)
+	}
 }
 
 // GetItemsHandler returns all items
@@ -53,7 +57,9 @@ func GetItemsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(items)
+	if err := json.NewEncoder(w).Encode(items); err != nil {
+		log.Printf("Error encoding items response: %v", err)
+	}
 }
 
 // CreateItemHandler creates a new item
@@ -81,7 +87,9 @@ func CreateItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(item)
+	if err := json.NewEncoder(w).Encode(item); err != nil {
+		log.Printf("Error encoding item response: %v", err)
+	}
 }
 
 // GetItemHandler returns a single item by ID
@@ -102,7 +110,9 @@ func GetItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(item)
+	if err := json.NewEncoder(w).Encode(item); err != nil {
+		log.Printf("Error encoding item response: %v", err)
+	}
 }
 
 // UpdateItemHandler updates an existing item
@@ -137,7 +147,9 @@ func UpdateItemHandler(w http.ResponseWriter, r *http.Request) {
 	item.UpdatedAt = time.Now()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(item)
+	if err := json.NewEncoder(w).Encode(item); err != nil {
+		log.Printf("Error encoding item response: %v", err)
+	}
 }
 
 // DeleteItemHandler deletes an item
