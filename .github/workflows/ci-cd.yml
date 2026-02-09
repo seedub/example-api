@@ -114,13 +114,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Deploy to EC2
+    - name: Detect EC2 architecture and deploy
       env:
         SSH_KEY: ${{ secrets.SSH_KEY }}
         HOST: 35.90.6.81
         USER: ec2-user
-        # Set to 'amd64' or 'arm64' based on your EC2 instance architecture
-        ARCH: amd64
       run: |
         echo "Setting up SSH key..."
         mkdir -p ~/.ssh
@@ -137,51 +135,41 @@ jobs:
         elif [ "$EC2_ARCH" = "aarch64" ]; then
           BINARY_ARCH="arm64"
         else
-          echo "Unsupported architecture: $EC2_ARCH"
+          echo "ERROR: Unsupported architecture: $EC2_ARCH"
+          echo "Supported architectures: x86_64 (amd64), aarch64 (arm64)"
           exit 1
         fi
         
-        echo "Using binary for architecture: $BINARY_ARCH"
-        
-        # Download the correct artifact
-        mkdir -p bin/
-        
-    - name: Download correct artifact
+        echo "Architecture detected: $BINARY_ARCH"
+        echo "BINARY_ARCH=$BINARY_ARCH" >> $GITHUB_ENV
+
+    - name: Download architecture-specific binary
       uses: actions/download-artifact@v4
       with:
-        name: example-api-${{ env.ARCH }}
+        name: example-api-${{ env.BINARY_ARCH }}
         path: bin/
 
-    - name: Complete deployment
+    - name: Deploy to EC2
       env:
         SSH_KEY: ${{ secrets.SSH_KEY }}
         HOST: 35.90.6.81
         USER: ec2-user
-        ARCH: amd64
       run: |
         echo "Setting up SSH key..."
         mkdir -p ~/.ssh
         echo "$SSH_KEY" > ~/.ssh/deploy_key
         chmod 600 ~/.ssh/deploy_key
         
-        # Detect architecture
-        EC2_ARCH=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${USER}@${HOST} 'uname -m')
-        if [ "$EC2_ARCH" = "x86_64" ]; then
-          BINARY_ARCH="amd64"
-        elif [ "$EC2_ARCH" = "aarch64" ]; then
-          BINARY_ARCH="arm64"
-        else
-          BINARY_ARCH="amd64"  # default fallback
-        fi
+        BINARY_ARCH="${{ env.BINARY_ARCH }}"
+        echo "Deploying $BINARY_ARCH binary to EC2..."
         
-        echo "Copying $BINARY_ARCH binary to EC2..."
         chmod +x bin/example-api-${BINARY_ARCH}
         scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no bin/example-api-${BINARY_ARCH} ${USER}@${HOST}:/tmp/example-api
         
         echo "Copying systemd service file to EC2..."
         scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deployment/example-api.service ${USER}@${HOST}:/tmp/
         
-        echo "Deploying on EC2..."
+        echo "Installing and starting service on EC2..."
         ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${USER}@${HOST} << 'EOF'
           # Stop the service if running
           sudo systemctl stop example-api || true

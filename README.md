@@ -11,7 +11,7 @@ This is a lightweight REST API built with Go that provides backend services for 
 - **Simple HTTP API**: RESTful endpoints for basic operations
 - **CORS Support**: Configured to allow cross-origin requests from the UI
 - **Health Check**: Built-in health check endpoint for monitoring
-- **Comprehensive Testing**: 80%+ code coverage with unit tests
+- **Comprehensive Testing**: 76% code coverage with unit tests
 - **CI/CD Pipeline**: Automated testing, linting, building, and deployment
 - **AWS Deployment**: Automated deployment to EC2 instances
 
