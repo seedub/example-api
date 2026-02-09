@@ -10,6 +10,27 @@ import (
 	"github.com/seedub/example-api/models"
 )
 
+func TestRootHandler(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+
+	RootHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+	}
+
+	contentType := w.Header().Get("Content-Type")
+	if contentType != "text/plain" {
+		t.Errorf("Expected Content-Type 'text/plain', got '%s'", contentType)
+	}
+
+	body := w.Body.String()
+	if body == "" {
+		t.Error("Expected non-empty response body")
+	}
+}
+
 func TestHealthCheckHandler(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()

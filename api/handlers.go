@@ -25,6 +25,13 @@ func NewStore() *Store {
 
 var store = NewStore()
 
+// RootHandler returns a simple text response for the UI
+func RootHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Hello from the example API!"))
+}
+
 // HealthCheckHandler returns a simple health check
 func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

@@ -9,6 +9,15 @@ import (
 func NewRouter() http.Handler {
 	mux := http.NewServeMux()
 
+	// Root endpoint for UI
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			RootHandler(w, r)
+		} else {
+			http.NotFound(w, r)
+		}
+	})
+
 	// Health check endpoint
 	mux.HandleFunc("/health", HealthCheckHandler)
 

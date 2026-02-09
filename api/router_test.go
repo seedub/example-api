@@ -14,6 +14,24 @@ func TestNewRouter(t *testing.T) {
 	}
 }
 
+func TestRouterRootEndpoint(t *testing.T) {
+	router := NewRouter()
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+	}
+
+	contentType := w.Header().Get("Content-Type")
+	if contentType != "text/plain" {
+		t.Errorf("Expected Content-Type 'text/plain', got '%s'", contentType)
+	}
+}
+
 func TestRouterHealthCheck(t *testing.T) {
 	router := NewRouter()
 
