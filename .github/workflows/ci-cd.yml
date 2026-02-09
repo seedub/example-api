@@ -114,6 +114,29 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Validate required secrets
+      env:
+        SSH_KEY: ${{ secrets.SSH_KEY }}
+        HOST: ${{ secrets.EC2_HOST }}
+        USER: ${{ secrets.EC2_USER }}
+      run: |
+        if [ -z "$SSH_KEY" ]; then
+          echo "ERROR: SSH_KEY secret is not set"
+          echo "Configure it in: Settings → Secrets and variables → Actions → New repository secret"
+          exit 1
+        fi
+        if [ -z "$HOST" ]; then
+          echo "ERROR: EC2_HOST secret is not set"
+          echo "Configure it in: Settings → Secrets and variables → Actions → New repository secret"
+          exit 1
+        fi
+        if [ -z "$USER" ]; then
+          echo "ERROR: EC2_USER secret is not set"
+          echo "Configure it in: Settings → Secrets and variables → Actions → New repository secret"
+          exit 1
+        fi
+        echo "All required secrets are configured ✓"
+
     - name: Detect EC2 architecture and deploy
       env:
         SSH_KEY: ${{ secrets.SSH_KEY }}
