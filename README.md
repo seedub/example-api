@@ -145,7 +145,13 @@ The build process supports both **amd64** (x86_64) and **arm64** (ARM/Graviton) 
 
 #### Required GitHub Secrets
 
-- `SSH_KEY`: SSH private key for EC2 access
+To enable automated deployment to AWS EC2, configure the following secret in your GitHub repository:
+
+- **`SSH_KEY`**: AWS EC2 SSH private key for deploying to the EC2 instance
+  - This is the private SSH key (PEM format) used to authenticate with the AWS EC2 instance
+  - Configure this in GitHub: Settings → Secrets and variables → Actions → New repository secret
+  - Name: `SSH_KEY`
+  - Value: The complete private key content (including `-----BEGIN RSA PRIVATE KEY-----` and `-----END RSA PRIVATE KEY-----` headers)
 
 #### Deployment Target
 
