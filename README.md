@@ -150,8 +150,10 @@ The build process supports both **amd64** (x86_64) and **arm64** (ARM/Graviton) 
 #### Deployment Target
 
 - **Host**: 35.90.6.81 (us-west-2)
+- **Architecture**: ARM64 (aarch64)
 - **User**: ec2-user
-- **Port**: 80 (configured in systemd service)
+- **Port**: 8080
+- **Shared with**: [example-ui](https://github.com/seedub/example-ui) (Nginx on port 80)
 
 #### Manual Deployment
 
@@ -191,6 +193,69 @@ sudo systemctl restart example-api
 ## Environment Variables
 
 - `PORT`: Server port (default: 8080)
+
+## Deployment Architecture (Same Server as UI)
+
+This API runs on the same AWS EC2 instance (35.90.6.81, ARM64) as the [example-ui](https://github.com/seedub/example-ui) React application.
+
+### Server Configuration
+
+**API (this repository):**
+- Go HTTP server running directly on port 8080
+- No nginx needed - Go's built-in HTTP server is production-ready
+- Managed by systemd service
+
+**UI (example-ui repository):**
+- Nginx on port 80 serving static React files
+- Location: `/var/www/example-ui`
+
+### UI Configuration for Same-Server Deployment
+
+The example-ui needs to be configured to call the API on the same server. Update `src/App.jsx`:
+
+```javascript
+// For same-server deployment on port 8080
+const API_BASE_URL = 'http://35.90.6.81:8080'
+
+// OR use window location if you want it dynamic
+const API_BASE_URL = `http://${window.location.hostname}:8080`
+```
+
+**Note:** Port 8080 must be opened in the AWS Security Group for external access.
+
+### Alternative: Nginx Reverse Proxy (Optional)
+
+If you prefer not to expose port 8080, you can configure Nginx to proxy API requests:
+
+```nginx
+# In /etc/nginx/conf.d/example-ui.conf
+location /api/ {
+    proxy_pass http://localhost:8080/api/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+
+location /health {
+    proxy_pass http://localhost:8080/health;
+}
+```
+
+Then the UI can use relative URLs or same-origin requests:
+```javascript
+const API_BASE_URL = ''  // Same origin
+```
+
+### Testing the Integration
+
+```bash
+# Test API directly
+curl http://35.90.6.81:8080/api/items
+curl http://35.90.6.81:8080/health
+
+# Test from the UI
+open http://35.90.6.81
+```
 
 ## Contributing
 
