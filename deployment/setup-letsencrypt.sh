@@ -29,25 +29,32 @@ if command -v yum &> /dev/null; then
         # VERSION_ID can be "2023" or "2023.x.x"
         if [ "$ID" = "amzn" ] && [[ "$VERSION_ID" == 2023* ]]; then
             echo "Detected Amazon Linux 2023 - installing packages directly..."
-            yum install -y certbot nginx
+            yum install -y certbot nginx cronie
         else
             # Amazon Linux 2 / RHEL / CentOS - install EPEL first
             echo "Installing EPEL repository..."
             yum install -y epel-release
-            yum install -y certbot nginx
+            yum install -y certbot nginx cronie
         fi
     else
         # Fallback for older systems
         yum install -y epel-release
-        yum install -y certbot nginx
+        yum install -y certbot nginx cronie
     fi
 elif command -v apt-get &> /dev/null; then
     # Ubuntu / Debian
     apt-get update
-    apt-get install -y certbot nginx
+    apt-get install -y certbot nginx cron
 else
     echo "ERROR: Unsupported package manager. Please install certbot and nginx manually."
     exit 1
+fi
+
+# Enable and start cron service
+echo "Enabling cron service..."
+if command -v systemctl &> /dev/null; then
+    systemctl enable crond 2>/dev/null || systemctl enable cron 2>/dev/null || true
+    systemctl start crond 2>/dev/null || systemctl start cron 2>/dev/null || true
 fi
 
 # Create directory for Let's Encrypt challenges
