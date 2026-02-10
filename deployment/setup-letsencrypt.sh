@@ -103,26 +103,34 @@ echo "Setting up automatic certificate renewal..."
 # Deploy nginx configuration
 echo ""
 echo "Deploying nginx configuration..."
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Verify script directory and source file exist
-if [ -z "$SCRIPT_DIR" ] || [ ! -d "$SCRIPT_DIR" ]; then
-    echo "ERROR: Unable to determine script directory"
-    exit 1
+# Check if nginx config is already deployed (e.g., by CI/CD)
+if [ -f /etc/nginx/conf.d/example-api.conf ]; then
+    echo "✓ Nginx configuration already exists at /etc/nginx/conf.d/example-api.conf"
+else
+    # Need to deploy the configuration file
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    
+    # Verify script directory and source file exist
+    if [ -z "$SCRIPT_DIR" ] || [ ! -d "$SCRIPT_DIR" ]; then
+        echo "ERROR: Unable to determine script directory"
+        exit 1
+    fi
+    
+    if [ ! -f "$SCRIPT_DIR/nginx-example-api.conf" ]; then
+        echo "ERROR: nginx-example-api.conf not found in $SCRIPT_DIR"
+        echo "Please ensure nginx-example-api.conf is in the same directory as this script"
+        exit 1
+    fi
+    
+    # Copy nginx configuration
+    if ! cp "$SCRIPT_DIR/nginx-example-api.conf" /etc/nginx/conf.d/example-api.conf; then
+        echo "ERROR: Failed to copy nginx configuration to /etc/nginx/conf.d/"
+        exit 1
+    fi
+    
+    echo "✓ Nginx configuration deployed successfully"
 fi
-
-if [ ! -f "$SCRIPT_DIR/nginx-example-api.conf" ]; then
-    echo "ERROR: nginx-example-api.conf not found in $SCRIPT_DIR"
-    exit 1
-fi
-
-# Copy nginx configuration
-if ! cp "$SCRIPT_DIR/nginx-example-api.conf" /etc/nginx/conf.d/example-api.conf; then
-    echo "ERROR: Failed to copy nginx configuration to /etc/nginx/conf.d/"
-    exit 1
-fi
-
-echo "✓ Nginx configuration deployed successfully"
 
 # Test nginx configuration
 echo "Testing nginx configuration..."
