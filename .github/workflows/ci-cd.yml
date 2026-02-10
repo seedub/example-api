@@ -192,6 +192,12 @@ jobs:
         echo "Copying systemd service file to EC2..."
         scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deployment/example-api.service ${USER}@${HOST}:/tmp/
         
+        echo "Copying nginx configuration to EC2..."
+        scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deployment/nginx-example-api.conf ${USER}@${HOST}:/tmp/
+        
+        echo "Copying SSL setup script to EC2..."
+        scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deployment/setup-letsencrypt.sh ${USER}@${HOST}:/tmp/
+        
         echo "Installing and starting service on EC2..."
         ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${USER}@${HOST} << 'EOF'
           # Stop the service if running
@@ -209,8 +215,22 @@ jobs:
           sudo systemctl enable example-api
           sudo systemctl start example-api
           
+          # Install nginx configuration (if nginx is installed)
+          if command -v nginx &> /dev/null; then
+            echo "Nginx detected, deploying configuration..."
+            sudo mv /tmp/nginx-example-api.conf /etc/nginx/conf.d/example-api.conf
+            sudo nginx -t && sudo systemctl reload nginx || echo "Nginx config test failed, skipping reload"
+          else
+            echo "Nginx not installed, skipping nginx configuration"
+            echo "To enable HTTPS, run: sudo /tmp/setup-letsencrypt.sh"
+          fi
+          
+          # Make SSL setup script executable
+          chmod +x /tmp/setup-letsencrypt.sh
+          
           # Check status
           sudo systemctl status example-api
         EOF
         
         echo "Deployment complete for $BINARY_ARCH architecture!"
+        echo "To enable HTTPS, SSH to the server and run: sudo /tmp/setup-letsencrypt.sh"
