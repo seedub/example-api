@@ -20,14 +20,22 @@ This is a lightweight REST API built with Go that provides backend services for 
 ### Root Endpoint
 - **GET** `/` - Returns a simple text message for the UI
   ```bash
+  # Local development (HTTP)
   curl http://localhost:8080/
+  
+  # Production with HTTPS
+  curl https://YOUR_SERVER_IP/
   # Response: Hello from the example API!
   ```
 
 ### Health Check
 - **GET** `/health` - Returns API health status
   ```bash
+  # Local development (HTTP)
   curl http://localhost:8080/health
+  
+  # Production with HTTPS
+  curl https://YOUR_SERVER_IP/health
   # Response: {"status":"healthy","time":"2026-02-09T21:00:00Z"}
   ```
 
@@ -202,71 +210,171 @@ sudo journalctl -u example-api -f
 sudo systemctl restart example-api
 ```
 
+## SSL/TLS Certificate Management
+
+### Initial Setup
+
+The deployment includes automated SSL/TLS setup using the `deployment/setup-letsencrypt.sh` script:
+
+```bash
+# After deployment, SSH to your server and run:
+sudo /tmp/setup-letsencrypt.sh
+```
+
+### Certificate Types
+
+**For IP-based Access (Default):**
+- Generates a self-signed certificate
+- Works immediately for testing
+- Browsers will show security warnings
+- Suitable for development and internal use
+
+**For Domain-based Access (Production):**
+```bash
+# After running setup-letsencrypt.sh, obtain a real Let's Encrypt certificate:
+sudo certbot certonly --standalone -d your-domain.com
+
+# Update nginx configuration with your domain:
+sudo nano /etc/nginx/conf.d/example-api.conf
+# Change: server_name _; to server_name your-domain.com;
+
+# Update certificate paths to use your domain:
+# ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+# ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+
+# Test and reload nginx
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Certificate Renewal
+
+Certificates are automatically renewed via cron job:
+```bash
+# Check renewal status
+sudo certbot renew --dry-run
+
+# Manual renewal (if needed)
+sudo certbot renew
+
+# Reload nginx after renewal
+sudo systemctl reload nginx
+```
+
+### Certificate Verification
+
+```bash
+# Quick validation of entire HTTPS setup
+sudo /tmp/validate-https.sh
+
+# Check certificate expiration
+echo | openssl s_client -servername YOUR_DOMAIN -connect YOUR_SERVER:443 2>/dev/null | openssl x509 -noout -dates
+
+# Verify HTTPS is working
+curl -I https://YOUR_SERVER/health
+
+# For self-signed certificates, use -k flag
+curl -Ik https://YOUR_SERVER/health
+```
+
+**For complete HTTPS setup documentation, see [HTTPS_SETUP.md](HTTPS_SETUP.md)**
+
 ## Environment Variables
 
 - `PORT`: Server port (default: 8080)
 
-## Deployment Architecture (Same Server as UI)
+## Deployment Architecture with HTTPS
 
-This API can run on the same server as a frontend application like [example-ui](https://github.com/seedub/example-ui).
+This API is designed to run behind nginx with HTTPS support using Let's Encrypt SSL certificates.
 
 ### Server Configuration
 
 **API (this repository):**
-- Go HTTP server running directly on port 8080
-- No nginx needed - Go's built-in HTTP server is production-ready
+- Go HTTP server running on localhost port 8080
+- Not directly exposed to the internet
 - Managed by systemd service
 
-**UI (example-ui repository):**
-- Nginx on port 80 serving static React files
-- Location: `/var/www/example-ui`
+**Nginx (reverse proxy):**
+- Handles HTTPS/SSL termination on port 443
+- Redirects HTTP (port 80) to HTTPS
+- Proxies requests to the Go API on localhost:8080
+- Configured via `deployment/nginx-example-api.conf`
+
+**SSL/TLS:**
+- Let's Encrypt certificates (for domain-based deployments)
+- Self-signed certificates (for IP-based deployments)
+- Automatic HTTP to HTTPS redirect
+
+### Setting Up HTTPS
+
+After deploying the API, set up HTTPS with the provided script:
+
+```bash
+# SSH to your EC2 instance
+ssh -i your-key.pem ec2-user@YOUR_EC2_HOST
+
+# Run the SSL setup script
+sudo /tmp/setup-letsencrypt.sh
+```
+
+This script will:
+1. Install nginx and certbot
+2. Generate SSL certificates (self-signed for IP-based access)
+3. Configure nginx with the provided configuration
+4. Set up automatic certificate renewal
+
+**Note:** For production use with a domain name, update the certificate after running the script:
+```bash
+sudo certbot certonly --standalone -d your-domain.com
+# Then update /etc/nginx/conf.d/example-api.conf with your domain
+```
 
 ### UI Configuration for Same-Server Deployment
 
 The frontend application needs to be configured to call the API on the same server. Example for React:
 
 ```javascript
-// For same-server deployment on port 8080
-const API_BASE_URL = `http://${window.location.hostname}:8080`
+// For HTTPS with nginx reverse proxy (recommended)
+const API_BASE_URL = `https://${window.location.hostname}`
 
-// Or for nginx reverse proxy setup (see below)
-const API_BASE_URL = ''  // Same origin
+// The API will be available at:
+// - https://your-server/api/items
+// - https://your-server/health
+// - https://your-server/
 ```
 
-**Note:** Port 8080 must be opened in your firewall/security group for external access.
+**Security Group / Firewall Requirements:**
+- Port 443 (HTTPS) must be open for external access
+- Port 80 (HTTP) must be open for Let's Encrypt verification and redirect to HTTPS
+- Port 8080 should NOT be exposed externally (only localhost access needed)
 
-### Alternative: Nginx Reverse Proxy (Optional)
+### Nginx Reverse Proxy Configuration
 
-If you prefer not to expose port 8080, you can configure Nginx to proxy API requests:
+The nginx configuration (`deployment/nginx-example-api.conf`) provides:
 
-```nginx
-# In /etc/nginx/conf.d/example-ui.conf
-location /api/ {
-    proxy_pass http://localhost:8080/api/;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-}
-
-location /health {
-    proxy_pass http://localhost:8080/health;
-}
-```
-
-Then the UI can use relative URLs or same-origin requests:
-```javascript
-const API_BASE_URL = ''  // Same origin
-```
+- **HTTPS/SSL termination** on port 443
+- **HTTP to HTTPS redirect** on port 80
+- **Reverse proxy** to Go API on localhost:8080
+- **Security headers** (HSTS, X-Frame-Options, etc.)
+- **CORS headers** for cross-origin requests
+- **Let's Encrypt support** for certificate renewal
 
 ### Testing the Integration
 
 ```bash
-# Test API directly (replace YOUR_EC2_HOST with your server)
-curl http://YOUR_EC2_HOST:8080/api/items
-curl http://YOUR_EC2_HOST:8080/health
+# Test API with HTTPS (replace YOUR_SERVER_IP with your server)
+curl https://YOUR_SERVER_IP/api/items
+curl https://YOUR_SERVER_IP/health
+
+# For self-signed certificates, use -k flag
+curl -k https://YOUR_SERVER_IP/api/items
+
+# Test HTTP to HTTPS redirect
+curl -I http://YOUR_SERVER_IP/health
+# Should return 301 redirect to https://
 
 # Test from the UI
-open http://YOUR_EC2_HOST
+open https://YOUR_EC2_HOST
 ```
 
 ## Contributing
