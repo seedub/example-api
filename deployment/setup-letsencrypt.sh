@@ -104,7 +104,25 @@ echo "Setting up automatic certificate renewal..."
 echo ""
 echo "Deploying nginx configuration..."
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cp "$SCRIPT_DIR/nginx-example-api.conf" /etc/nginx/conf.d/example-api.conf
+
+# Verify script directory and source file exist
+if [ -z "$SCRIPT_DIR" ] || [ ! -d "$SCRIPT_DIR" ]; then
+    echo "ERROR: Unable to determine script directory"
+    exit 1
+fi
+
+if [ ! -f "$SCRIPT_DIR/nginx-example-api.conf" ]; then
+    echo "ERROR: nginx-example-api.conf not found in $SCRIPT_DIR"
+    exit 1
+fi
+
+# Copy nginx configuration
+if ! cp "$SCRIPT_DIR/nginx-example-api.conf" /etc/nginx/conf.d/example-api.conf; then
+    echo "ERROR: Failed to copy nginx configuration to /etc/nginx/conf.d/"
+    exit 1
+fi
+
+echo "✓ Nginx configuration deployed successfully"
 
 # Test nginx configuration
 echo "Testing nginx configuration..."
@@ -120,8 +138,23 @@ systemctl enable nginx
 # Restart to ensure new configuration is loaded
 systemctl restart nginx
 
-# Wait for nginx to start
-sleep 2
+# Wait for nginx to start with retry logic
+echo "Waiting for nginx to start..."
+RETRIES=10
+RETRY_COUNT=0
+while [ $RETRY_COUNT -lt $RETRIES ]; do
+    if systemctl is-active --quiet nginx; then
+        echo "✓ Nginx started successfully"
+        break
+    fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    if [ $RETRY_COUNT -lt $RETRIES ]; then
+        sleep 1
+    else
+        echo "WARNING: Nginx may not have started properly. Check status:"
+        echo "  sudo systemctl status nginx"
+    fi
+done
 
 # Verify HTTPS is working
 echo ""
