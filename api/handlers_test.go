@@ -26,8 +26,9 @@ func TestRootHandler(t *testing.T) {
 	}
 
 	body := w.Body.String()
-	if body == "" {
-		t.Error("Expected non-empty response body")
+	expectedBody := "Hello from the example API!\n"
+	if body != expectedBody {
+		t.Errorf("Expected body '%s', got '%s'", expectedBody, body)
 	}
 }
 
