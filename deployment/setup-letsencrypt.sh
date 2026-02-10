@@ -117,7 +117,8 @@ fi
 # Enable and start nginx
 echo "Enabling and starting nginx..."
 systemctl enable nginx
-systemctl start nginx
+# Restart to ensure new configuration is loaded
+systemctl restart nginx
 
 # Wait for nginx to start
 sleep 2
@@ -129,11 +130,16 @@ echo "Verifying HTTPS is working..."
 # Check if API service is running
 if systemctl is-active --quiet example-api 2>/dev/null; then
     # API is running, test HTTPS
+    # Note: Using -k flag to skip certificate verification for self-signed certificates
+    # This is expected behavior for IP-based deployments with self-signed certs
     if curl -k -s -f https://$SERVER_IP/health > /dev/null; then
         echo "✓ HTTPS is working correctly!"
         echo ""
         echo "You can test the API with:"
         echo "  curl -k https://$SERVER_IP/health"
+        echo ""
+        echo "Note: The -k flag skips certificate verification, required for self-signed certificates."
+        echo "      For production, use a domain with a real Let's Encrypt certificate."
     else
         echo "WARNING: HTTPS verification failed. Please check nginx logs:"
         echo "  sudo journalctl -u nginx -n 50"
@@ -144,6 +150,8 @@ else
     echo ""
     echo "After deploying the API, test with:"
     echo "  curl -k https://$SERVER_IP/health"
+    echo ""
+    echo "Note: The -k flag skips certificate verification, required for self-signed certificates."
 fi
 
 echo ""
