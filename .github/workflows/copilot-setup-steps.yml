@@ -1,0 +1,62 @@
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download Go dependencies
+        run: go mod download
+
+      - name: Verify Go installation
+        run: |
+          go version
+          which go
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Verify golangci-lint installation
+        run: golangci-lint --version
+
+      - name: Verify project can build
+        run: go build -v ./main.go
+
+      - name: Verify tests can run
+        run: go test ./... -v
+
+      - name: Display environment info
+        run: |
+          echo "=== Environment Setup Complete ==="
+          echo "Go version: $(go version)"
+          echo "golangci-lint version: $(golangci-lint --version)"
+          echo "Go modules cache: ~/go/pkg/mod"
+          echo "GOPATH: $(go env GOPATH)"
+          echo "All dependencies installed and verified successfully!"
