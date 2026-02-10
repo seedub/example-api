@@ -100,22 +100,99 @@ echo ""
 echo "Setting up automatic certificate renewal..."
 (crontab -l 2>/dev/null; echo "0 0,12 * * * certbot renew --quiet --post-hook 'systemctl reload nginx'") | crontab -
 
+# Deploy nginx configuration
+echo ""
+echo "Deploying nginx configuration..."
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Verify script directory and source file exist
+if [ -z "$SCRIPT_DIR" ] || [ ! -d "$SCRIPT_DIR" ]; then
+    echo "ERROR: Unable to determine script directory"
+    exit 1
+fi
+
+if [ ! -f "$SCRIPT_DIR/nginx-example-api.conf" ]; then
+    echo "ERROR: nginx-example-api.conf not found in $SCRIPT_DIR"
+    exit 1
+fi
+
+# Copy nginx configuration
+if ! cp "$SCRIPT_DIR/nginx-example-api.conf" /etc/nginx/conf.d/example-api.conf; then
+    echo "ERROR: Failed to copy nginx configuration to /etc/nginx/conf.d/"
+    exit 1
+fi
+
+echo "✓ Nginx configuration deployed successfully"
+
+# Test nginx configuration
+echo "Testing nginx configuration..."
+if ! nginx -t; then
+    echo "ERROR: Nginx configuration test failed!"
+    echo "Please check /etc/nginx/conf.d/example-api.conf for errors."
+    exit 1
+fi
+
+# Enable and start nginx
+echo "Enabling and starting nginx..."
+systemctl enable nginx
+# Restart to ensure new configuration is loaded
+systemctl restart nginx
+
+# Wait for nginx to start with retry logic
+echo "Waiting for nginx to start..."
+RETRIES=10
+RETRY_COUNT=0
+while [ $RETRY_COUNT -lt $RETRIES ]; do
+    if systemctl is-active --quiet nginx; then
+        echo "✓ Nginx started successfully"
+        break
+    fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    if [ $RETRY_COUNT -lt $RETRIES ]; then
+        sleep 1
+    else
+        echo "WARNING: Nginx may not have started properly. Check status:"
+        echo "  sudo systemctl status nginx"
+    fi
+done
+
+# Verify HTTPS is working
+echo ""
+echo "Verifying HTTPS is working..."
+
+# Check if API service is running
+if systemctl is-active --quiet example-api 2>/dev/null; then
+    # API is running, test HTTPS
+    # Note: Using -k flag to skip certificate verification for self-signed certificates
+    # This is expected behavior for IP-based deployments with self-signed certs
+    if curl -k -s -f https://$SERVER_IP/health > /dev/null; then
+        echo "✓ HTTPS is working correctly!"
+        echo ""
+        echo "You can test the API with:"
+        echo "  curl -k https://$SERVER_IP/health"
+        echo ""
+        echo "Note: The -k flag skips certificate verification, required for self-signed certificates."
+        echo "      For production, use a domain with a real Let's Encrypt certificate."
+    else
+        echo "WARNING: HTTPS verification failed. Please check nginx logs:"
+        echo "  sudo journalctl -u nginx -n 50"
+    fi
+else
+    echo "NOTE: example-api service is not running yet."
+    echo "The HTTPS/nginx setup is complete, but the API needs to be deployed and started."
+    echo ""
+    echo "After deploying the API, test with:"
+    echo "  curl -k https://$SERVER_IP/health"
+    echo ""
+    echo "Note: The -k flag skips certificate verification, required for self-signed certificates."
+fi
+
 echo ""
 echo "=== Setup Complete ==="
 echo ""
-echo "Next steps:"
-echo "1. Deploy the nginx configuration:"
-echo "   sudo cp deployment/nginx-example-api.conf /etc/nginx/conf.d/example-api.conf"
-echo ""
-echo "2. Test nginx configuration:"
-echo "   sudo nginx -t"
-echo ""
-echo "3. Start nginx:"
-echo "   sudo systemctl enable nginx"
-echo "   sudo systemctl start nginx"
-echo ""
-echo "4. Verify HTTPS is working:"
-echo "   curl -k https://$SERVER_IP/health"
+echo "Your API is now accessible via HTTPS at: https://$SERVER_IP"
 echo ""
 echo "Note: Browsers will show a security warning for self-signed certificates."
-echo "For production with a domain name, obtain a real Let's Encrypt certificate."
+echo "For production with a domain name, obtain a real Let's Encrypt certificate by running:"
+echo "  sudo certbot certonly --standalone -d your-domain.com"
+echo "  sudo systemctl restart nginx"

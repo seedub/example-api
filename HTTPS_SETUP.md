@@ -23,9 +23,14 @@ sudo /tmp/setup-letsencrypt.sh
 
 This script will:
 1. Install nginx and certbot (if not already installed)
-2. Generate SSL certificates
-3. Deploy the nginx configuration
-4. Set up automatic certificate renewal
+2. Generate SSL certificates (self-signed for IP-based access)
+3. Deploy the nginx configuration automatically
+4. Test the nginx configuration
+5. Enable and start nginx
+6. Set up automatic certificate renewal
+7. Verify HTTPS is working
+
+**No manual steps required!** The script is fully automated.
 
 ## Setup Details
 
