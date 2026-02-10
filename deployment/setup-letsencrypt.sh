@@ -22,9 +22,25 @@ echo ""
 # Install certbot and nginx if not already installed
 echo "Installing required packages..."
 if command -v yum &> /dev/null; then
-    # Amazon Linux / RHEL / CentOS
-    yum install -y epel-release
-    yum install -y certbot nginx
+    # Detect OS version
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        # Amazon Linux 2023 and later don't need EPEL repository
+        # VERSION_ID can be "2023" or "2023.x.x"
+        if [ "$ID" = "amzn" ] && [[ "$VERSION_ID" == 2023* ]]; then
+            echo "Detected Amazon Linux 2023 - installing packages directly..."
+            yum install -y certbot nginx
+        else
+            # Amazon Linux 2 / RHEL / CentOS - install EPEL first
+            echo "Installing EPEL repository..."
+            yum install -y epel-release
+            yum install -y certbot nginx
+        fi
+    else
+        # Fallback for older systems
+        yum install -y epel-release
+        yum install -y certbot nginx
+    fi
 elif command -v apt-get &> /dev/null; then
     # Ubuntu / Debian
     apt-get update
