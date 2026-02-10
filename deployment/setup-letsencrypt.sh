@@ -125,14 +125,25 @@ sleep 2
 # Verify HTTPS is working
 echo ""
 echo "Verifying HTTPS is working..."
-if curl -k -s -f https://$SERVER_IP/health > /dev/null; then
-    echo "✓ HTTPS is working correctly!"
-    echo ""
-    echo "You can test the API with:"
-    echo "  curl -k https://$SERVER_IP/health"
+
+# Check if API service is running
+if systemctl is-active --quiet example-api 2>/dev/null; then
+    # API is running, test HTTPS
+    if curl -k -s -f https://$SERVER_IP/health > /dev/null; then
+        echo "✓ HTTPS is working correctly!"
+        echo ""
+        echo "You can test the API with:"
+        echo "  curl -k https://$SERVER_IP/health"
+    else
+        echo "WARNING: HTTPS verification failed. Please check nginx logs:"
+        echo "  sudo journalctl -u nginx -n 50"
+    fi
 else
-    echo "WARNING: HTTPS verification failed. Please check nginx logs:"
-    echo "  sudo journalctl -u nginx -n 50"
+    echo "NOTE: example-api service is not running yet."
+    echo "The HTTPS/nginx setup is complete, but the API needs to be deployed and started."
+    echo ""
+    echo "After deploying the API, test with:"
+    echo "  curl -k https://$SERVER_IP/health"
 fi
 
 echo ""
