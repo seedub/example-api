@@ -100,22 +100,47 @@ echo ""
 echo "Setting up automatic certificate renewal..."
 (crontab -l 2>/dev/null; echo "0 0,12 * * * certbot renew --quiet --post-hook 'systemctl reload nginx'") | crontab -
 
+# Deploy nginx configuration
+echo ""
+echo "Deploying nginx configuration..."
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cp "$SCRIPT_DIR/nginx-example-api.conf" /etc/nginx/conf.d/example-api.conf
+
+# Test nginx configuration
+echo "Testing nginx configuration..."
+if ! nginx -t; then
+    echo "ERROR: Nginx configuration test failed!"
+    echo "Please check /etc/nginx/conf.d/example-api.conf for errors."
+    exit 1
+fi
+
+# Enable and start nginx
+echo "Enabling and starting nginx..."
+systemctl enable nginx
+systemctl start nginx
+
+# Wait for nginx to start
+sleep 2
+
+# Verify HTTPS is working
+echo ""
+echo "Verifying HTTPS is working..."
+if curl -k -s -f https://$SERVER_IP/health > /dev/null; then
+    echo "✓ HTTPS is working correctly!"
+    echo ""
+    echo "You can test the API with:"
+    echo "  curl -k https://$SERVER_IP/health"
+else
+    echo "WARNING: HTTPS verification failed. Please check nginx logs:"
+    echo "  sudo journalctl -u nginx -n 50"
+fi
+
 echo ""
 echo "=== Setup Complete ==="
 echo ""
-echo "Next steps:"
-echo "1. Deploy the nginx configuration:"
-echo "   sudo cp deployment/nginx-example-api.conf /etc/nginx/conf.d/example-api.conf"
-echo ""
-echo "2. Test nginx configuration:"
-echo "   sudo nginx -t"
-echo ""
-echo "3. Start nginx:"
-echo "   sudo systemctl enable nginx"
-echo "   sudo systemctl start nginx"
-echo ""
-echo "4. Verify HTTPS is working:"
-echo "   curl -k https://$SERVER_IP/health"
+echo "Your API is now accessible via HTTPS at: https://$SERVER_IP"
 echo ""
 echo "Note: Browsers will show a security warning for self-signed certificates."
-echo "For production with a domain name, obtain a real Let's Encrypt certificate."
+echo "For production with a domain name, obtain a real Let's Encrypt certificate by running:"
+echo "  sudo certbot certonly --standalone -d your-domain.com"
+echo "  sudo systemctl restart nginx"
