@@ -25,8 +25,9 @@ if command -v yum &> /dev/null; then
     # Detect OS version
     if [ -f /etc/os-release ]; then
         . /etc/os-release
-        # Amazon Linux 2023 doesn't need EPEL repository
-        if [ "$ID" = "amzn" ] && [ "$VERSION_ID" = "2023" ]; then
+        # Amazon Linux 2023 and later don't need EPEL repository
+        # VERSION_ID can be "2023" or "2023.x.x"
+        if [ "$ID" = "amzn" ] && [[ "$VERSION_ID" == 2023* ]]; then
             echo "Detected Amazon Linux 2023 - installing packages directly..."
             yum install -y certbot nginx
         else
