@@ -264,6 +264,9 @@ sudo systemctl reload nginx
 ### Certificate Verification
 
 ```bash
+# Quick validation of entire HTTPS setup
+sudo /tmp/validate-https.sh
+
 # Check certificate expiration
 echo | openssl s_client -servername YOUR_DOMAIN -connect YOUR_SERVER:443 2>/dev/null | openssl x509 -noout -dates
 
@@ -273,6 +276,8 @@ curl -I https://YOUR_SERVER/health
 # For self-signed certificates, use -k flag
 curl -Ik https://YOUR_SERVER/health
 ```
+
+**For complete HTTPS setup documentation, see [HTTPS_SETUP.md](HTTPS_SETUP.md)**
 
 ## Environment Variables
 

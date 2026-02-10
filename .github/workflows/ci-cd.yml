@@ -198,6 +198,9 @@ jobs:
         echo "Copying SSL setup script to EC2..."
         scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deployment/setup-letsencrypt.sh ${USER}@${HOST}:/tmp/
         
+        echo "Copying HTTPS validation script to EC2..."
+        scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no deployment/validate-https.sh ${USER}@${HOST}:/tmp/
+        
         echo "Installing and starting service on EC2..."
         ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${USER}@${HOST} << 'EOF'
           # Stop the service if running
@@ -225,12 +228,17 @@ jobs:
             echo "To enable HTTPS, run: sudo /tmp/setup-letsencrypt.sh"
           fi
           
-          # Make SSL setup script executable
+          # Make scripts executable
           chmod +x /tmp/setup-letsencrypt.sh
+          chmod +x /tmp/validate-https.sh
           
           # Check status
           sudo systemctl status example-api
         EOF
         
         echo "Deployment complete for $BINARY_ARCH architecture!"
-        echo "To enable HTTPS, SSH to the server and run: sudo /tmp/setup-letsencrypt.sh"
+        echo ""
+        echo "HTTPS Setup Instructions:"
+        echo "1. SSH to the server: ssh -i your-key.pem ${USER}@${HOST}"
+        echo "2. Run setup script: sudo /tmp/setup-letsencrypt.sh"
+        echo "3. Validate setup: sudo /tmp/validate-https.sh"

@@ -43,6 +43,9 @@ For servers accessed by IP address, the script generates a self-signed certifica
 
 ```bash
 sudo /tmp/setup-letsencrypt.sh
+
+# Validate the setup
+sudo /tmp/validate-https.sh
 ```
 
 **Pros:**
@@ -131,6 +134,24 @@ echo | openssl s_client -servername YOUR_DOMAIN -connect YOUR_SERVER:443 2>/dev/
 │  Port 8080      │
 └─────────────────┘
 ```
+
+## Quick Validation
+
+After setup, run the validation script to verify everything is working:
+
+```bash
+sudo /tmp/validate-https.sh
+```
+
+This script checks:
+- ✓ Nginx and API services are running
+- ✓ Ports 80 and 443 are listening
+- ✓ SSL certificate exists and expiration date
+- ✓ Nginx configuration is valid
+- ✓ API responds on localhost:8080
+- ✓ HTTPS endpoint is working
+- ✓ HTTP to HTTPS redirect is active
+- ✓ CORS and security headers are present
 
 ## Testing
 
