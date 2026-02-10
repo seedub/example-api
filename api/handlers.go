@@ -29,7 +29,7 @@ var store = NewStore()
 func RootHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write([]byte("Hello from the example API!")); err != nil {
+	if _, err := w.Write([]byte("Hello from the example API!\n")); err != nil {
 		log.Printf("Error writing response: %v", err)
 	}
 }
